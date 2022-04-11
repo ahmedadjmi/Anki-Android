@@ -1,0 +1,86 @@
+image: gitlab-registry.proxym-group.net/docker/android:29.0.2-gradle6.1.1
+
+variables:
+  GIT_SUBMODULE_STRATEGY: recursive
+  PROJECT_NAME: "ANKI-ANROID"
+  APK_ALIAS: "ANKI-ANROID"
+  API_TYPE_NAME: "Development"
+  API_TYPE_ALIAS: "development"
+
+
+stages:
+  - build
+  - test
+
+.build_development_release: &build_development_release
+  stage: build
+  script:
+    - gradle clean assembleDevelopmentRelease
+  artifacts:
+    when: on_success
+    paths:
+      - ./app/build/outputs/apk/development/release/${PROJECT_NAME}-development.apk
+  tags:
+    - docker
+
+build_feature:
+  <<: *build_development_release
+  only:
+    - /^feature\/.+$/
+  when: manual
+
+build_development:
+  <<: *build_development_release
+  only:
+    - develop
+
+build_staging_production:
+  stage: build
+  script:
+    - gradle clean assembleStagingRelease
+  artifacts:
+    when: on_success
+    paths:
+      - ./app/build/outputs/apk/${API_TYPE_ALIAS}/release/${PROJECT_NAME}-${API_TYPE_ALIAS}.apk
+  only:
+    - master
+  tags:
+    - docker
+
+
+build_tag:
+  # build_development_release  for development API
+  # build_staging_production   for release API
+  <<: *build_development_release
+  only:
+    - tags
+
+.test_development_release: &test_development_release
+  stage: test
+  script:
+    - gradle testDevelopmentRelease
+  tags:
+    - docker
+  when: manual
+
+test_feature:
+  <<: *test_development_release
+  only:
+    - /^feature\/.+$/
+  when: manual
+
+test_development:
+  <<: *test_development_release
+  only:
+    - develop
+  when: manual
+
+test_staging_production:
+  stage: test
+  script:
+    - gradle testStagingRelease
+  only:
+    - master
+  when: manual
+  tags:
+    - docker
